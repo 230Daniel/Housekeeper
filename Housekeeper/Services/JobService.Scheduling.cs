@@ -64,6 +64,7 @@ public partial class JobService
                 .WithContent(nextUser.Mention)
                 .WithAllowedMentions(LocalAllowedMentions.ExceptEveryone)
                 .AddEmbed(new LocalEmbed()
+                    .WithColor(3092790)
                     .WithTitle(job.Name)
                     .WithDescription(job.Description))
                 .AddComponent(LocalComponent.Row(LocalComponent.Button("job:done", "Done")
