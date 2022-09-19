@@ -5,11 +5,9 @@ using Disqord;
 using Disqord.Bot.Commands;
 using Disqord.Bot.Commands.Application;
 using Disqord.Rest;
-using Housekeeper.Database;
 using Housekeeper.Entities;
 using Housekeeper.Extensions;
 using Housekeeper.Services;
-using Microsoft.EntityFrameworkCore;
 using Qmmands;
 
 namespace Housekeeper.Commands.Modules;
@@ -17,19 +15,17 @@ namespace Housekeeper.Commands.Modules;
 [SlashGroup("job")]
 public class JobModule : DiscordApplicationGuildModuleBase
 {
-    private readonly DatabaseContext _db;
-    private readonly JobLogicService _jobLogicService;
+    private readonly JobService _jobService;
 
-    public JobModule(DatabaseContext db, JobLogicService jobLogicService)
+    public JobModule(JobService jobService)
     {
-        _db = db;
-        _jobLogicService = jobLogicService;
+        _jobService = jobService;
     }
 
     [SlashCommand("info")]
     public async Task<IResult> InfoAsync(Job job)
     {
-        var nextUser = await _jobLogicService.GetNextUserAsync(job);
+        var nextUser = await _jobService.GetNextUserAsync(job);
 
         return Response(new LocalEmbed()
             .WithColor(3092790)
@@ -43,12 +39,12 @@ public class JobModule : DiscordApplicationGuildModuleBase
     [SlashCommand("list")]
     public async Task<IResult> ListAsync()
     {
-        var jobs = await _db.Jobs.OrderBy(x => x.Id).ToListAsync();
+        var jobs = await _jobService.GetAllJobsAsync();
 
         return Response(new LocalEmbed()
             .WithColor(3092790)
             .WithTitle("Jobs")
-            .WithDescription(string.Join("\n", jobs.Select(x => $"**{x.Id}:** {x.Name}"))));
+            .WithDescription(string.Join("\n", jobs.OrderBy(x => x.Id).Select(x => $"**{x.Id}:** {x.Name}"))));
     }
 
     [SlashCommand("add")]
@@ -92,9 +88,7 @@ public class JobModule : DiscordApplicationGuildModuleBase
     [SlashCommand("delete")]
     public async Task<IResult> DeleteAsync(Job job)
     {
-        _db.Jobs.Remove(job);
-        await _db.SaveChangesAsync();
-
+        await _jobService.DeleteAsync(job);
         return Response($"Deleted {job.Name}.");
     }
 
@@ -107,9 +101,7 @@ public class JobModule : DiscordApplicationGuildModuleBase
             return Response($"{user.Mention} is already added to {job.Name}.");
 
         job.UserIds.Add(user.Id);
-        _db.Jobs.Update(job);
-        await _db.SaveChangesAsync();
-
+        await _jobService.UpdateAsync(job);
         return Response($"{user.Mention} has been added to {job.Name}.");
     }
 
@@ -122,9 +114,7 @@ public class JobModule : DiscordApplicationGuildModuleBase
             return Response($"{user.Mention} is not added to {job.Name}.");
 
         job.UserIds.Remove(user.Id);
-        _db.Jobs.Update(job);
-        await _db.SaveChangesAsync();
-
+        await _jobService.UpdateAsync(job);
         return Response($"{user.Mention} has been removed from {job.Name}.");
     }
 
@@ -134,9 +124,7 @@ public class JobModule : DiscordApplicationGuildModuleBase
         DateTime start)
     {
         job.StartOfFirstWeekMidday = start.StartOfWeekMidday();
-        _db.Jobs.Update(job);
-        await _db.SaveChangesAsync();
-
+        await _jobService.UpdateAsync(job);
         return Response($"The start date of {job.Name} has been set to {Markdown.Timestamp(job.StartOfFirstWeekMidday, Markdown.TimestampFormat.LongDateTime)}.\n" +
                         $"The next activation is now {Markdown.Timestamp(job.GetNextActivation(), Markdown.TimestampFormat.RelativeTime)}.");
     }
@@ -146,17 +134,13 @@ public class JobModule : DiscordApplicationGuildModuleBase
         Job job,
         [RequireNotBot] IMember user)
     {
-        await _jobLogicService.GetAndValidateUsersAsync(job);
+        await _jobService.ValidateUsersAsync(job);
 
-        var userIndex = job.UserIds.IndexOf(user.Id);
-        if (userIndex == -1) return Response($"{user.Mention} is not added to {job.Name}.");
+        if (!job.UserIds.Contains(user.Id))
+            return Response($"{user.Mention} is not added to {job.Name}.");
 
-        userIndex -= 1;
-
-        job.PreviousUserIndex = userIndex;
-        _db.Jobs.Update(job);
-        await _db.SaveChangesAsync();
-
+        job.PreviousUserIndex = job.UserIds.IndexOf(user.Id) - 1;
+        await _jobService.UpdateAsync(job);
         return Response($"The next user for {job.Name} has been set to {user.Mention}.");
     }
 }

@@ -59,7 +59,7 @@ internal static class Program
     private static void ConfigureServices(HostBuilderContext context, IServiceCollection services)
     {
         services.AddSingleton(typeof(Microsoft.Extensions.Logging.ILogger<>), typeof(Logger<>));
-        services.AddScoped<JobLogicService>();
+        // services.AddSingleton<JobService>();
         services.AddDbContext<DatabaseContext>();
         services.Configure<DefaultGatewayCacheProviderConfiguration>(x => x.MessagesPerChannel = 1);
     }

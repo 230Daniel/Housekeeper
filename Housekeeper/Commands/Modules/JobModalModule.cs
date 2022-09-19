@@ -3,20 +3,20 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Disqord;
 using Disqord.Bot.Commands.Components;
-using Housekeeper.Database;
 using Housekeeper.Entities;
 using Housekeeper.Extensions;
+using Housekeeper.Services;
 using Qmmands;
 
 namespace Housekeeper.Commands.Modules;
 
 public class JobModalModule : DiscordComponentGuildModuleBase
 {
-    private readonly DatabaseContext _db;
+    private readonly JobService _jobService;
 
-    public JobModalModule(DatabaseContext db)
+    public JobModalModule(JobService jobService)
     {
-        _db = db;
+        _jobService = jobService;
     }
 
     [ModalCommand("job:add")]
@@ -37,10 +37,8 @@ public class JobModalModule : DiscordComponentGuildModuleBase
             PreviousUserIndex = -1
         };
 
-        _db.Jobs.Add(job);
-        await _db.SaveChangesAsync();
-
-        return Response($"Created {name}.");
+        await _jobService.AddAsync(job);
+        return Response($"Created job {job.Name} with ID {job.Id}.");
     }
 
     [ModalCommand("job:modify:*")]
@@ -56,9 +54,7 @@ public class JobModalModule : DiscordComponentGuildModuleBase
         job.DaysOfWeek = daysOfWeek;
         job.WeekFrequency = weekFrequency;
 
-        _db.Jobs.Update(job);
-        await _db.SaveChangesAsync();
-
+        await _jobService.UpdateAsync(job);
         return Response(new LocalInteractionMessageResponse()
             .WithContent($"Modified {name}."));
     }
