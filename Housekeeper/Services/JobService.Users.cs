@@ -13,6 +13,7 @@ public partial class JobService
     public async Task<IMember> GetNextUserAsync(Job job)
     {
         var users = await ValidateUsersAsync(job);
+        if (users.Count == 0) return null;
 
         var nextUserIndex = job.PreviousUserIndex + 1;
         if (nextUserIndex >= users.Count) nextUserIndex = 0;

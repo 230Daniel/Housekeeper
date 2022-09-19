@@ -4,24 +4,27 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Disqord;
 using Disqord.Bot.Hosting;
 using Housekeeper.Database;
 using Housekeeper.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Housekeeper.Services;
 
 public partial class JobService : DiscordBotService
 {
+    private new HousekeeperBot Bot => (HousekeeperBot) base.Bot;
+
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly SemaphoreSlim _semaphore;
-    protected new HousekeeperBot Bot => (HousekeeperBot) base.Bot;
-
     private List<Job> _jobs;
 
-    public JobService(IServiceScopeFactory scopeFactory)
+    public JobService(IConfiguration config, IServiceScopeFactory scopeFactory)
     {
+        _todoChannelId = Snowflake.Parse(config["Discord:TodoChannelId"]);
         _scopeFactory = scopeFactory;
         _semaphore = new(0, 1);
         _scheduledJobs = new();
