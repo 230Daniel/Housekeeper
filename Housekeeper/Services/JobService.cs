@@ -24,6 +24,7 @@ public partial class JobService : DiscordBotService
     {
         _scopeFactory = scopeFactory;
         _semaphore = new(0, 1);
+        _scheduledJobs = new();
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -34,6 +35,16 @@ public partial class JobService : DiscordBotService
         _jobs = await db.Jobs.ToListAsync(stoppingToken);
 
         _semaphore.Release();
+
+        await Bot.WaitUntilReadyAsync(stoppingToken);
+
+        var activationTask = ActivateJobsAsync(stoppingToken);
+
+        try { await Task.Delay(-1, stoppingToken); }
+        catch (TaskCanceledException) { }
+
+        _activatorCts.Cancel();
+        await activationTask;
     }
 
     public async Task<ReadOnlyCollection<Job>> GetAllJobsAsync()
@@ -90,6 +101,8 @@ public partial class JobService : DiscordBotService
             _jobs.Add(job);
             db.Jobs.Add(job);
             await db.SaveChangesAsync();
+
+            Schedule(job);
         }
         finally
         {
@@ -109,7 +122,7 @@ public partial class JobService : DiscordBotService
             db.Jobs.Update(job);
             await db.SaveChangesAsync();
 
-            await RescheduleAsync(job);
+            Schedule(job);
         }
         finally
         {
@@ -129,6 +142,8 @@ public partial class JobService : DiscordBotService
             _jobs.Remove(job);
             db.Jobs.Remove(job);
             await db.SaveChangesAsync();
+
+            Unschedule(job);
         }
         finally
         {
